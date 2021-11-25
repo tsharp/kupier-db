@@ -65,9 +65,9 @@ pub trait DynPage {
             stream.write(&PAD);
         }
 
+        // Ensure that this page is flushed to disk ...
         let new_pos = stream.stream_position().unwrap();
-
-        println!("pad: {} -> {} to {} -> Actual: {}", pad, old_pos, old_pos + pad as u64, new_pos);
+        stream.flush();
     }
 }
 

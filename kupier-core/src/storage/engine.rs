@@ -59,8 +59,13 @@ impl StorageEngine {
         let page_lock = self.pages.write();
         let mut page_box = page_lock.unwrap();
 
+        let mut current = 0.0;
+        let len = page_box.values().len() as f64;
         for page in page_box.values() {
             page.encode(&mut self.db_file);
+            current += 1.0;
+
+            println!("% complete: {}", 100 * (current / len));
         }
 
         self.db_file.flush();
