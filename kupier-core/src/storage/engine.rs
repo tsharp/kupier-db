@@ -3,17 +3,20 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, RwLock};
 use bson::Document;
-use crate::storage::page::{Descriptor, Page, PageType};
 use crate::error::{Error, Result};
+use crate::storage::page::descriptor::Descriptor;
+use crate::storage::page::{DynPage, Page, PageType};
+use crate::storage::page::data::DataPage;
+use crate::storage::page::super_page::SuperPage;
 
 pub mod EngineConfig {
     /// Default Page Size of 64KB
-    pub const DEFAULT_PAGE_SIZE: u32 = 65536; // 8KB Page Size, 128 per MB
+    pub const DEFAULT_PAGE_SIZE: u16 = 8192; // 8KB Page Size, 128 per MB
 }
 
 pub struct StorageEngine {
-    super_page: Arc<RwLock<Box<Page>>>,
-    pages: Arc<RwLock<HashMap<usize, Page>>>,
+    super_page: Arc<RwLock<Box<dyn DynPage>>>,
+    pages: Arc<RwLock<HashMap<u128, Box<dyn DynPage>>>>,
     db_file: File
 }
 
@@ -21,12 +24,9 @@ impl StorageEngine {
     pub fn new(path: &str) -> StorageEngine {
         let super_page_arc = Arc::new(
             RwLock::new(
-                Box::new(
-                    Page::new(PageType::Super,
-                                 EngineConfig::DEFAULT_PAGE_SIZE,
-                                 0,
-                                 0)
-                )));
+                SuperPage::new(EngineConfig::DEFAULT_PAGE_SIZE,
+                              0,
+                              0)));
 
         let storage = StorageEngine {
             super_page: super_page_arc,
@@ -35,9 +35,14 @@ impl StorageEngine {
         };
 
         {
-            let page_lock = storage.super_page.write();
+            let page_lock = storage.pages.write();
             let mut page_box = page_lock.unwrap();
-            let page = page_box.as_mut();
+
+            for idx in 0..65535 {
+                page_box.insert(idx, DataPage::new(EngineConfig::DEFAULT_PAGE_SIZE,
+                                             0,
+                                             0));
+            }
         }
 
         return storage;
@@ -46,9 +51,18 @@ impl StorageEngine {
     pub fn save(&mut self) {
         let locked_page_data = self.super_page.read().unwrap();
         let boxed_page_data = &*locked_page_data;
-        let page_data = boxed_page_data.as_ref();
-        bincode::serialize_into(&mut self.db_file, &page_data);
-        self.db_file.write_all(&page_data.data);
+        let super_page = boxed_page_data.as_ref();
+        super_page.encode(&mut self.db_file);
+
+        println!("{}", super_page.get_data_size());
+
+        let page_lock = self.pages.write();
+        let mut page_box = page_lock.unwrap();
+
+        for page in page_box.values() {
+            page.encode(&mut self.db_file);
+        }
+
         self.db_file.flush();
     }
 
@@ -64,6 +78,7 @@ impl StorageEngine {
         Ok(page_header.unwrap())
     }
 
+    /*
     pub fn load(path: &str) -> Result<StorageEngine> {
         let mut db_file = OpenOptions::new()
             .read(true)
@@ -78,14 +93,10 @@ impl StorageEngine {
             println!("SUPER_HEADER!");
         }
 
-        if super_header.bytes_used == 0 {
-            println!("EMPTY SUPER PAGE!");
-        }
-
         // Read and deserialize the super page ..
         let mut buf: [u8; EngineConfig::DEFAULT_PAGE_SIZE as usize] = [0; EngineConfig::DEFAULT_PAGE_SIZE as usize];
         db_file.read_exact(&mut buf)?;
-        let super_page: Option<Page> = bincode::deserialize(&buf[..]).unwrap();
+        let super_page: Option<dyn DynPage> = bincode::deserialize(&buf[..]).unwrap();
         let super_page_arc = Arc::new(RwLock::new(Box::new(super_page.unwrap())));
 
         Ok(StorageEngine  {
@@ -94,6 +105,7 @@ impl StorageEngine {
             db_file
         })
     }
+     */
 
     /// Returns where in the file the given
     fn calculate_location(&self, ) {

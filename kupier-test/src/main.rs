@@ -1,3 +1,5 @@
+mod calculator;
+
 use std::io::{self, Read, Seek, SeekFrom};
 use std::sync::{ Arc, RwLock};
 use std::fs::File;
@@ -22,6 +24,8 @@ fn to_bson(value: serde_json::Value) -> Document {
 }
 
 fn main () {
+    calculator::test_page_efficiencies();
+
     let stdout = ConsoleAppender::builder().build();
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))

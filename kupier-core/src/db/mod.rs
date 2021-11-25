@@ -4,7 +4,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, RwLock};
 use bson::Document;
-use crate::storage::page::{Page, Descriptor, PageType};
 use crate::error::{Error, Result};
 use crate::storage::engine::StorageEngine;
 
@@ -35,6 +34,7 @@ impl Database {
         debug!("{:?}", "Saved.");
     }
 
+    /*
     pub fn load() -> Result<Database> {
         debug!("{:?}", "Loading database ...");
 
@@ -42,6 +42,7 @@ impl Database {
             storage: StorageEngine::load(Config::DEFAULT_DB_FILE).unwrap()
         })
     }
+    */
 
     pub fn insert(&self, doc: Document) {
         self.storage.insert(doc);

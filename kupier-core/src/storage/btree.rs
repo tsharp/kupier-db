@@ -8,7 +8,27 @@ use std::ops::{Bound, Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 
 /// The default B+tree order, i.e. maximum number of children per node.
-const DEFAULT_ORDER: usize = 8;
+/// k * (d - 1) + (v * d) + h <= 8192
+/// Where,
+/// k = key size
+/// d = default order
+/// v = value size
+/// h = header size
+/// This is based on the size of a page when stored on disk
+/// Page Size: 8192 bytes
+/// Header Size: 64 bytes
+/// Key Size: 16 bytes
+/// Value Size: 10 bytes
+/// Value Composition:
+/// * 8 byte file offset
+/// * 2 byte page offset
+const DEFAULT_ORDER: usize = 313;
+
+/// Maximum size of a key
+const KEY_SIZE: usize = 16;
+
+/// Size of an internal nodes value
+const INTERNAL_VALUE_SIZE: usize = 8;
 
 /// In-memory key-value store using a B+tree. The B+tree is a variant of a binary search tree with
 /// lookup keys in inner nodes and actual key/value pairs on the leaf nodes. Each node has several
