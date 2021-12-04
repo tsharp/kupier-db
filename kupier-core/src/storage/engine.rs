@@ -8,6 +8,8 @@ use crate::storage::page::descriptor::Descriptor;
 use crate::storage::page::{DynPage, Page, PageType};
 use crate::storage::page::data::DataPage;
 use crate::storage::page::super_page::SuperPage;
+use log::debug;
+use log::info;
 
 pub mod EngineConfig {
     /// Default Page Size of 64KB
@@ -34,16 +36,12 @@ impl StorageEngine {
             db_file: File::create(path).unwrap()
         };
 
-        {
-            let page_lock = storage.pages.write();
-            let mut page_box = page_lock.unwrap();
+        // initialize data set to 128mb to start with ...
+        const num_init_pgs: u32 = (128 * 1024 * 1024) / (EngineConfig::DEFAULT_PAGE_SIZE as u32);
 
-            for idx in 0..65535 {
-                page_box.insert(idx, DataPage::new(EngineConfig::DEFAULT_PAGE_SIZE,
-                                             0,
-                                             0));
-            }
-        }
+        info!("Allocating {} pages", num_init_pgs);
+
+        storage.allocate_free_pages(num_init_pgs);
 
         return storage;
     }
@@ -54,8 +52,6 @@ impl StorageEngine {
         let super_page = boxed_page_data.as_ref();
         super_page.encode(&mut self.db_file);
 
-        println!("{}", super_page.get_data_size());
-
         let page_lock = self.pages.write();
         let mut page_box = page_lock.unwrap();
 
@@ -65,7 +61,7 @@ impl StorageEngine {
             page.encode(&mut self.db_file);
             current += 1.0;
 
-            println!("% complete: {}", 100 * (current / len));
+            // println!("% complete: {}", 100 * (current / len));
         }
 
         self.db_file.flush();
@@ -83,52 +79,16 @@ impl StorageEngine {
         Ok(page_header.unwrap())
     }
 
-    /*
-    pub fn load(path: &str) -> Result<StorageEngine> {
-        let mut db_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(path)
-            .unwrap();
+    fn allocate_free_pages(&self, number: u32) {
+        let page_lock = self.pages.write();
 
-        let super_header =
-            StorageEngine::read_page_header(&db_file).unwrap();
+        let mut page_box = page_lock.unwrap();
 
-        if super_header.page_type == PageType::Super {
-            println!("SUPER_HEADER!");
-        }
-
-        // Read and deserialize the super page ..
-        let mut buf: [u8; EngineConfig::DEFAULT_PAGE_SIZE as usize] = [0; EngineConfig::DEFAULT_PAGE_SIZE as usize];
-        db_file.read_exact(&mut buf)?;
-        let super_page: Option<dyn DynPage> = bincode::deserialize(&buf[..]).unwrap();
-        let super_page_arc = Arc::new(RwLock::new(Box::new(super_page.unwrap())));
-
-        Ok(StorageEngine  {
-            super_page: super_page_arc,
-            pages: Arc::new(RwLock::new(HashMap::new())),
-            db_file
-        })
-    }
-     */
-
-    /// Returns where in the file the given
-    fn calculate_location(&self, ) {
-
-    }
-
-    fn allocate_pages(&self, number: u32) {
-        /*
-        let prev_page_start = 0;
-        let next_page_start:
         for idx in 0..number {
-            self.pages.write().unwrap().insert(2, Page::new(PageType::Super,
-                                                         Config::DEFAULT_PAGE_SIZE,
-                                                         0,
-                                                         0,
-                                                         0));
+            page_box.insert(0, DataPage::new(EngineConfig::DEFAULT_PAGE_SIZE,
+                                               0,
+                                               0));
         }
-         */
     }
 
     pub fn insert(&self, doc: Document) {

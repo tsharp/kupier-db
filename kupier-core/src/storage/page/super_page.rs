@@ -6,12 +6,22 @@ use crate::error::{Result};
 use crate::storage::page::descriptor::Descriptor;
 use crate::storage::page::{DynPage, Page, PageType, Stream};
 
+pub struct SuperPageData {
+    /// Location of the next free list entry, 0 if none assigned.
+    pub free_list_start: u64,
+
+    /// Location of the first linked data node, 0 if none is set
+    pub data_list_start: u64
+
+    // Note that entries must be keyed
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct SuperPage {
     header: Descriptor,
 
     #[serde(skip_serializing)]
-    pub data: Vec<Vec<u8>>
+    pub data: SuperPageData
 }
 
 impl DynPage for SuperPage {
@@ -27,12 +37,11 @@ impl DynPage for SuperPage {
                                     page_size,
                                     prev_page_start,
                                     next_page_start),
-            data: vec![]
+            data: SuperPageData {
+                data_list_start: 0,
+                free_list_start: 0
+            }
         };
-
-        // Fills a vector with empty data ...
-        // page.data.resize((page_size as u32 - Descriptor::HEADER_SIZE) as usize, 0);
-        // page.data.fill(0);
 
         return Box::new(page);
     }
